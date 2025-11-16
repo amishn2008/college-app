@@ -1,3 +1,4 @@
+import type { HydratedDocument } from 'mongoose';
 import type { IUser } from '@/models/User';
 import type { ITask } from '@/models/Task';
 import type { ICollege } from '@/models/College';
@@ -19,8 +20,8 @@ export const buildCalendarFeed = ({
   colleges,
 }: {
   user: IUser;
-  tasks: ITask[];
-  colleges: ICollege[];
+  tasks: Array<ITask | HydratedDocument<ITask>>;
+  colleges: Array<ICollege | HydratedDocument<ICollege>>;
 }) => {
   const lines = [
     'BEGIN:VCALENDAR',
