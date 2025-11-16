@@ -1,0 +1,47 @@
+{
+  "name": "college-command-center",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.5.3",
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "mongoose": "^8.3.2",
+    "mongodb-memory-server": "^10.1.4",
+    "next-auth": "^4.24.6",
+    "openai": "^4.47.1",
+    "bcryptjs": "^2.4.3",
+    "@types/bcryptjs": "^2.4.6",
+    "zod": "^3.23.6",
+    "date-fns": "^3.3.1",
+    "react-hook-form": "^7.51.1",
+    "@hookform/resolvers": "^3.3.4",
+    "lucide-react": "^0.400.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.2.2",
+    "react-hot-toast": "^2.4.1",
+    "react-datepicker": "^4.25.0",
+    "@types/react-datepicker": "^4.19.4",
+    "react-markdown": "^9.0.1",
+    "rehype-highlight": "^7.0.0",
+    "remark-gfm": "^4.0.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.18",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.3",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.5"
+  }
+}
+
