@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { MessageSquare, Sparkles, Lightbulb, Loader2 } from 'lucide-react';
+import { MessageSquare, Sparkles, Lightbulb, Loader2, Bot, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCollaborationContext } from '@/components/providers/CollaborationProvider';
 
@@ -18,8 +18,8 @@ interface Essay {
 
 interface AIPanelProps {
   essay: Essay;
-  mode: 'critique' | 'rewrite' | 'coach';
-  onModeChange: (mode: 'critique' | 'rewrite' | 'coach') => void;
+  mode: 'critique' | 'rewrite' | 'coach' | 'chat';
+  onModeChange: (mode: 'critique' | 'rewrite' | 'coach' | 'chat') => void;
   onRewriteApplied?: (content: string) => void;
 }
 
@@ -33,6 +33,11 @@ interface RewriteApproval {
   };
 }
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export function AIPanel({ essay, mode, onModeChange, onRewriteApplied }: AIPanelProps) {
   const { appendStudentQuery } = useCollaborationContext();
   const [loading, setLoading] = useState(false);
@@ -42,10 +47,26 @@ export function AIPanel({ essay, mode, onModeChange, onRewriteApplied }: AIPanel
   const [coaching, setCoaching] = useState('');
   const [approvals, setApprovals] = useState<RewriteApproval[]>(essay.rewriteApprovals || []);
   const [accepting, setAccepting] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
     setApprovals(essay.rewriteApprovals || []);
   }, [essay.rewriteApprovals]);
+
+  useEffect(() => {
+    setApprovals(essay.rewriteApprovals || []);
+    setCritique(null);
+    setRewriteInstruction('');
+    setRewritten('');
+    setCoaching('');
+    setChatMessages([]);
+    setChatInput('');
+    setLoading(false);
+    setAccepting(false);
+    setChatLoading(false);
+  }, [essay._id]);
 
   const handleCritique = async () => {
     if (!essay.currentContent.trim()) {
@@ -53,11 +74,13 @@ export function AIPanel({ essay, mode, onModeChange, onRewriteApplied }: AIPanel
       return;
     }
 
+    setCritique(null);
     setLoading(true);
     try {
       const res = await fetch(appendStudentQuery(`/api/essays/${essay._id}/critique`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ mode: 'critique' }),
       });
 
@@ -89,6 +112,7 @@ export function AIPanel({ essay, mode, onModeChange, onRewriteApplied }: AIPanel
       const res = await fetch(appendStudentQuery(`/api/essays/${essay._id}/critique`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ mode: 'rewrite', instruction: rewriteInstruction }),
       });
 
@@ -116,6 +140,7 @@ export function AIPanel({ essay, mode, onModeChange, onRewriteApplied }: AIPanel
       const res = await fetch(appendStudentQuery(`/api/essays/${essay._id}/critique`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ mode: 'coach' }),
       });
 
@@ -129,6 +154,45 @@ export function AIPanel({ essay, mode, onModeChange, onRewriteApplied }: AIPanel
       toast.error('Failed to get coaching');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleChatSend = async () => {
+    if (chatLoading) return;
+    if (!essay.currentContent.trim()) {
+      toast.error('Please write something first');
+      return;
+    }
+    if (!chatInput.trim()) {
+      toast.error('Type a message to start the chat');
+      return;
+    }
+
+    const newMessages = [...chatMessages, { role: 'user' as const, content: chatInput.trim() }];
+    setChatMessages(newMessages);
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const res = await fetch(appendStudentQuery(`/api/essays/${essay._id}/critique`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ mode: 'chat', messages: newMessages }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to chat');
+      }
+
+      const data = await res.json();
+      if (data?.message) {
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: data.message }]);
+      }
+    } catch (error) {
+      toast.error('Failed to chat with AI');
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -170,6 +234,14 @@ export function AIPanel({ essay, mode, onModeChange, onRewriteApplied }: AIPanel
           >
             <MessageSquare className="w-4 h-4 mr-2" />
             Critique
+          </Button>
+          <Button
+            variant={mode === 'chat' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => onModeChange('chat')}
+          >
+            <Bot className="w-4 h-4 mr-2" />
+            Chat
           </Button>
           <Button
             variant={mode === 'rewrite' ? 'primary' : 'outline'}
@@ -294,6 +366,63 @@ export function AIPanel({ essay, mode, onModeChange, onRewriteApplied }: AIPanel
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{rewritten}</p>
               </div>
             )}
+          </div>
+        )}
+
+        {mode === 'chat' && (
+          <div className="flex flex-col gap-3">
+            <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-72 min-h-[12rem] overflow-y-auto space-y-3">
+              {chatMessages.length === 0 && (
+                <p className="text-sm text-gray-600">
+                  Ask the AI coach about your draft (e.g., “How do I make the intro punchier?”).
+                </p>
+              )}
+              {chatMessages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`rounded-xl px-3 py-2 max-w-[80%] text-sm whitespace-pre-wrap ${
+                      msg.role === 'user'
+                        ? 'bg-primary-100 text-primary-900'
+                        : 'bg-white border border-gray-200 text-gray-800'
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="flex items-center text-xs text-gray-500">
+                  <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                  Thinking...
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Type a question or ask for a specific change..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                rows={3}
+              />
+              <Button
+                onClick={handleChatSend}
+                disabled={chatLoading}
+                className="h-full"
+              >
+                {chatLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         )}
 

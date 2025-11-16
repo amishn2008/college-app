@@ -33,38 +33,43 @@ export async function critiqueEssay(
       messages: [
         {
           role: 'system',
-          content: `You are a helpful essay coach helping a student improve their college application essay. 
-        Be constructive, specific, and encouraging. Focus on helping them think and improve, not writing the essay for them.
-        
-        Rubric:
-        - Idea/Theme clarity
-        - Structure & flow
-        - Voice & authenticity
-        - Specificity & evidence
-        - Language clarity & mechanics
-        
-        Provide:
-        1. Exactly 3 strengths (what's working well)
-        2. Exactly 3 priority fixes (what needs improvement, in order of importance)
-        3. Up to 3 concrete line-edits with the original line, suggested improvement, and reason
-        4. A brief overall feedback (2-3 sentences)
-        
-        Format your response as JSON with this structure:
-        {
-          "strengths": ["strength1", "strength2", "strength3"],
-          "issues": ["issue1", "issue2", "issue3"],
-          "lineEdits": [
-            {"line": "original line", "suggestion": "improved line", "reason": "why"}
-          ],
-          "overallFeedback": "brief feedback"
-        }`,
-      },
+          content: `You are a sharp, encouraging college essay coach. Ground every note in the student's actual draft and avoid generic advice. 
+Use short quotes from the essay (under 12 words) inside parentheses to prove each point.
+Prioritize the biggest reader-impact changes first.
+
+Rubric:
+- Idea/theme clarity and insight
+- Structure & flow toward a turning point
+- Voice & authenticity
+- Specificity & evidence
+- Language clarity & mechanics
+
+Provide:
+1) Exactly 3 strengths (what is working well and why)
+2) Exactly 3 priority fixes in order of impact (make each distinct)
+3) Up to 3 concrete line edits with original line, suggested improvement, and reason
+4) A brief overall feedback (2–3 sentences) that ties back to the prompt and next steps
+
+If the draft is a note dump or under 80 words, say that and give the next 2 most helpful actions instead of line edits.
+
+Format your response as JSON with this structure:
+{
+  "strengths": ["strength1", "strength2", "strength3"],
+  "issues": ["issue1", "issue2", "issue3"],
+  "lineEdits": [
+    {"line": "original line", "suggestion": "improved line", "reason": "why"}
+  ],
+  "overallFeedback": "brief feedback"
+}`,
+        },
         {
           role: 'user',
           content: `Prompt: ${prompt}\n\nWord Limit: ${wordLimit}\n\nEssay:\n\n${essay}`,
         },
       ],
-      temperature: 0.7,
+      temperature: 0.6,
+      presence_penalty: 0.4,
+      frequency_penalty: 0.2,
       response_format: { type: 'json_object' },
     });
 
@@ -96,16 +101,19 @@ export async function rewriteEssay(
       messages: [
         {
           role: 'system',
-          content: `You are a helpful essay coach. The student wants you to help them rewrite or improve their essay based on their instruction.
-        Provide a rewritten version that follows their instruction. Do not write the entire essay from scratch - work with what they have.
-        Maintain their voice and authenticity. The essay should be around ${wordLimit} words.`,
+          content: `You are a helpful essay coach. Rewrite only as much as needed to follow the student's instruction while keeping their voice, tone, and perspective.
+- Keep it around ${wordLimit} words.
+- Preserve any specific details, sensory images, and authentic moments.
+- Prefer tightening, clarifying, and reorganizing over inventing new content.
+- If the instruction is unclear, interpret it conservatively and explain your choice briefly at the end.`,
         },
         {
           role: 'user',
           content: `Prompt: ${prompt}\n\nCurrent Essay:\n\n${essay}\n\nInstruction: ${instruction}\n\nPlease provide the improved version:`,
         },
       ],
-      temperature: 0.7,
+      temperature: 0.6,
+      presence_penalty: 0.3,
     });
 
     return response.choices[0]?.message?.content || '';
@@ -130,22 +138,75 @@ export async function coachEssay(
       messages: [
         {
           role: 'system',
-          content: `You are a helpful essay coach. Provide suggestions on structure, story, and approach.
-        Be encouraging and specific. Focus on helping them think about their essay, not writing it for them.
-        Provide actionable suggestions in bullet points.`,
+          content: `You are an encouraging essay coach. Give focused, actionable guidance the student can execute themselves.
+Organize your response under these headers:
+• Structure (how to order the story toward a turning point)
+• Story & evidence (where to add or trim detail/imagery)
+• Clarity & polish (language/voice tweaks)
+• Quick wins (3 fast changes to make right now)
+Keep bullets short and anchored to the actual draft.`,
         },
         {
           role: 'user',
           content: `Prompt: ${prompt}\n\nWord Limit: ${wordLimit}\n\nEssay:\n\n${essay}\n\nWhat suggestions do you have for improving the structure and story?`,
         },
       ],
-      temperature: 0.7,
+      temperature: 0.55,
+      presence_penalty: 0.3,
     });
 
     return response.choices[0]?.message?.content || '';
   } catch (error) {
     console.error('OpenAI coaching request failed, using fallback:', error);
     return buildFallbackCoaching(essay, prompt);
+  }
+}
+
+export type EssayChatMessage = { role: 'user' | 'assistant'; content: string };
+
+export async function chatEssay(
+  essay: string,
+  prompt: string,
+  wordLimit: number,
+  messages: EssayChatMessage[]
+): Promise<string> {
+  if (!openai) {
+    return buildFallbackChat(essay, prompt);
+  }
+
+  const safeMessages = messages
+    .filter((m) => m?.content && (m.role === 'user' || m.role === 'assistant'))
+    .slice(-10)
+    .map((m) => ({
+      role: m.role,
+      content: m.content.slice(0, 2000),
+    })) as Array<{ role: 'user' | 'assistant'; content: string }>;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a collaborative college essay coach. Keep replies concise (4-8 sentences) and anchored to the student's draft.
+Ask one clarifying question only when needed. Cite short quotes (<=10 words) from the essay when referring to specific moments.
+Do not fabricate events—work only with what's on the page.`,
+        },
+        {
+          role: 'system',
+          content: `Prompt: ${prompt}\nWord limit: ${wordLimit}\nEssay draft (keep private):\n${essay}`,
+        },
+        ...safeMessages,
+      ],
+      temperature: 0.6,
+      presence_penalty: 0.5,
+      frequency_penalty: 0.2,
+    });
+
+    return response.choices[0]?.message?.content?.trim() || buildFallbackChat(essay, prompt);
+  } catch (error) {
+    console.error('OpenAI chat request failed, using fallback:', error);
+    return buildFallbackChat(essay, prompt);
   }
 }
 
@@ -158,29 +219,34 @@ function buildFallbackCritique(essay: string, prompt: string): EssayCritique {
   const avgSentenceLength = sentences.length ? Math.round(words.length / sentences.length) : words.length;
   const hasReflection = /learned|realized|because|therefore|so/i.test(essay);
   const hasSpecifics = /(\d{4}|\b\d+\b|because|specifically|for example)/i.test(essay);
+  const hasSensory = /saw|heard|felt|smelled|tasted|sound|texture|color|touch|looked/i.test(essay);
+  const opening = sentences[0] || '';
+  const closing = sentences[sentences.length - 1] || '';
+  const reflectiveSentence =
+    sentences.find((s) => /learned|realized|because|therefore|so|taught/i.test(s)) || closing || opening;
 
   const strengths = [
-    hasSpecifics
-      ? 'Includes concrete details that help the reader imagine the story.'
-      : 'Voice feels personal and conversational.',
+    opening
+      ? `Opens with a clear moment (“${snippet(opening)}”) that pulls the reader in.`
+      : 'Voice feels personal and conversational from the start.',
     hasReflection
-      ? 'Takes time to reflect on why the experience mattered.'
-      : 'Shows honest emotion that feels authentic.',
-    sentences.length > 3
-      ? 'Has a clear beginning, middle, and end.'
-      : 'Keeps things concise and easy to follow.',
+      ? `You pause to make meaning (“${snippet(reflectiveSentence)}”), which shows insight.`
+      : 'Honest tone makes the experience feel authentic.',
+    hasSpecifics || hasSensory
+      ? 'Concrete details help the scene feel tangible—keep leaning on vivid description.'
+      : 'Structure is easy to follow; adding small visuals will make it pop.',
   ];
 
   const issues = [
     avgSentenceLength > 28
-      ? 'Several sentences run long; consider breaking them up for clarity.'
-      : 'Could add a few shorter sentences to vary the pacing.',
-    hasSpecifics
-      ? 'Clarify how the details connect back to the prompt.'
-      : 'Add specific examples so admissions can picture the moment.',
+      ? 'Several sentences run long—split them so key beats land cleanly.'
+      : 'Add a few shorter sentences to vary pacing and emphasize the turning point.',
+    hasSpecifics || hasSensory
+      ? 'Connect each vivid detail back to why it matters for this prompt.'
+      : 'Add 2–3 specific images or examples so admissions can picture the moment.',
     hasReflection
-      ? 'End with a stronger final sentence that ties back to the prompt.'
-      : 'Include 1-2 sentences reflecting on what the experience taught you.',
+      ? `Strengthen the ending so it answers “so what?”—tie it back to ${prompt ? `"${snippet(prompt)}"` : 'the prompt'}.`
+      : 'Close with 1–2 sentences on what changed in you because of this experience.',
   ];
 
   const longSentence = sentences.find((s) => s.split(/\s+/).length > 35);
@@ -199,7 +265,9 @@ function buildFallbackCritique(essay: string, prompt: string): EssayCritique {
     strengths,
     issues,
     lineEdits,
-    overallFeedback: `Ground the essay in vivid, specific detail from your experience with "${prompt}". Then close by naming what changed in you because of it.`,
+    overallFeedback: `Lean on your strongest moment (“${snippet(
+      opening || sentences[1] || essay
+    )}”) and add one vivid sensory detail to let us feel it. Then close with a crisp sentence about how it changed what you value in relation to "${snippet(prompt)}".`,
   };
 }
 
@@ -248,6 +316,27 @@ function buildFallbackCoaching(essay: string, prompt: string): string {
   ].join('\n');
 }
 
+function buildFallbackChat(essay: string, prompt: string): string {
+  const promptSnippet = snippet(prompt || 'your prompt', 120);
+  const firstSentence =
+    essay
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean)[0] ?? '';
+  const hasScene = /saw|heard|felt|smelled|tasted|looked|sound|grabbed|held|hands|eyes/i.test(essay);
+
+  return [
+    `I’m seeing the core message trying to answer “${promptSnippet}”.`,
+    firstSentence
+      ? `The opening line (“${snippet(firstSentence, 90)}”) sets the scene—lean into that moment with one sensory detail.`
+      : 'Start with a concrete moment that shows the turning point before you explain it.',
+    hasScene
+      ? 'Layer in one more vivid detail around the turning point so the reader feels it happen.'
+      : 'Add a quick sensory beat (sound, texture, color) so the reader can picture the scene.',
+    'Close by naming exactly how you changed or what you value now—one crisp sentence is enough.',
+  ].join(' ');
+}
+
 function splitSentence(sentence: string): string {
   const midpoint = Math.round(sentence.length / 2);
   const splitIndex = sentence.indexOf(' ', midpoint);
@@ -257,4 +346,10 @@ function splitSentence(sentence: string): string {
 
 function words(text: string): string[] {
   return text.split(/\s+/).filter(Boolean);
+}
+
+function snippet(text: string, max = 80): string {
+  const clean = text.trim();
+  if (clean.length <= max) return clean;
+  return `${clean.slice(0, max)}...`;
 }

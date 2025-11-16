@@ -101,7 +101,7 @@ export function EssayDashboardClient({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showNewEssayModal, setShowNewEssayModal] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
-  const [aiMode, setAiMode] = useState<'critique' | 'rewrite' | 'coach'>('critique');
+  const [aiMode, setAiMode] = useState<'critique' | 'rewrite' | 'coach' | 'chat'>('critique');
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
 
   const collegesMap = useMemo(

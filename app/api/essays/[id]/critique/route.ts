@@ -3,8 +3,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import Essay from '@/models/Essay';
-import { critiqueEssay, rewriteEssay, coachEssay } from '@/lib/openai';
+import { critiqueEssay, rewriteEssay, coachEssay, chatEssay } from '@/lib/openai';
 import { resolveStudentContext, AuthorizationError } from '@/lib/collaboration';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(
   req: NextRequest,
@@ -19,11 +21,12 @@ export async function POST(
     await connectDB();
     const { searchParams } = new URL(req.url);
     const requestedStudentId = searchParams.get('studentId');
-    const { mode, instruction } = await req.json();
+    const { mode, instruction, messages } = await req.json();
+    const requiresEditing = mode === 'rewrite';
     const { targetUserId } = await resolveStudentContext({
       actorUserId: session.user.id,
       studentId: requestedStudentId,
-      requiredPermission: mode === 'critique' ? 'viewEssays' : 'editEssays',
+      requiredPermission: requiresEditing ? 'editEssays' : 'viewEssays',
     });
     const essay = await Essay.findOne({ _id: params.id, userId: targetUserId });
 
@@ -40,6 +43,9 @@ export async function POST(
     } else if (mode === 'coach') {
       const coaching = await coachEssay(essay.currentContent, essay.prompt, essay.wordLimit);
       return NextResponse.json({ coaching });
+    } else if (mode === 'chat' && Array.isArray(messages)) {
+      const reply = await chatEssay(essay.currentContent, essay.prompt, essay.wordLimit, messages);
+      return NextResponse.json({ message: reply });
     }
 
     return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });

@@ -17,8 +17,8 @@ export async function GET(
     }
 
     const [tasks, colleges] = await Promise.all([
-      Task.find({ userId: user._id }).lean(),
-      College.find({ userId: user._id }).lean(),
+      Task.find({ userId: user._id }),
+      College.find({ userId: user._id }),
     ]);
 
     const feed = buildCalendarFeed({ user, tasks, colleges });
