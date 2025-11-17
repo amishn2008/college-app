@@ -20,7 +20,9 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   );
 }
 
-if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
+const hasEmailEnv = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD;
+
+if (hasEmailEnv) {
   providers.push(
     EmailProvider({
       server: {
@@ -32,6 +34,17 @@ if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD)
         },
       },
       from: process.env.EMAIL_FROM || 'noreply@example.com',
+    })
+  );
+} else if (process.env.NODE_ENV !== 'production') {
+  // Dev fallback: enable the email provider and log magic links instead of sending email
+  providers.push(
+    EmailProvider({
+      from: process.env.EMAIL_FROM || 'noreply@example.com',
+      server: { host: 'localhost', port: 2525, auth: { user: '', pass: '' } },
+      async sendVerificationRequest({ url }) {
+        console.log('[auth] Email login link (dev fallback):', url);
+      },
     })
   );
 }
