@@ -29,13 +29,14 @@ export default function OnboardingPage() {
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    const selectedRegions = regions.length > 0 ? regions : ['US'];
     try {
       const res = await fetch('/api/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           intakeYear,
-          regions,
+          regions: selectedRegions,
           targetCollegeCount,
           role,
           timezone,

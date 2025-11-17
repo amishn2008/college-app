@@ -21,8 +21,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    const normalizedRegions =
+      Array.isArray(regions) && regions.length > 0
+        ? regions
+        : user.regions?.length
+          ? user.regions
+          : ['US'];
+
     user.intakeYear = intakeYear ?? user.intakeYear;
-    user.regions = Array.isArray(regions) ? regions : user.regions;
+    user.regions = normalizedRegions;
     if (typeof targetCollegeCount === 'number') {
       user.targetCollegeCount = targetCollegeCount;
     }
