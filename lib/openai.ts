@@ -1,6 +1,24 @@
 import OpenAI from 'openai';
+import { randomUUID } from 'crypto';
 
 const apiKey = process.env.OPENAI_API_KEY;
+// Allow overriding the deployed model; default to gpt-4o-mini which is widely available.
+const defaultModel = 'gpt-4o-mini';
+const modelName = process.env.OPENAI_MODEL || defaultModel;
+
+function maskKey(key?: string | null): string {
+  if (!key) return 'missing';
+  if (key.length <= 10) return '[loaded: short key]';
+  return `${key.slice(0, 6)}...${key.slice(-4)}`;
+}
+
+if (!apiKey) {
+  console.warn('[openai] OPENAI_API_KEY is missing — falling back to heuristic critiques.');
+} else {
+  // Light-touch log to confirm the key is being read without leaking it.
+  console.info(`[openai] Key loaded (${maskKey(apiKey)}) using model "${modelName}".`);
+}
+
 const openai = apiKey
   ? new OpenAI({
       apiKey,
@@ -16,60 +34,75 @@ export interface EssayCritique {
     reason: string;
   }>;
   overallFeedback: string;
+  source?: 'openai' | 'fallback';
+  runId?: string;
+  focus?: string;
+  counselor?: string;
+  model?: string;
 }
 
 export async function critiqueEssay(
   essay: string,
   prompt: string,
-  wordLimit: number
+  wordLimit: number,
+  title?: string
 ): Promise<EssayCritique> {
   if (!openai) {
-    return buildFallbackCritique(essay, prompt);
+    console.warn('OPENAI_API_KEY not found or OpenAI client not initialized; using fallback critique.');
+    return buildFallbackCritique(essay, prompt, title);
   }
+
+  // Rotate a focus lens and voice so repeat requests surface fresh angles instead of identical advice.
+  const focusLenses = [
+    'structure and pacing toward the turning point',
+    'voice, authenticity, and admissions-read clarity',
+    'specificity of examples and vivid imagery',
+    'reflection, meaning-making, and growth',
+    'language economy and polish',
+  ];
+  const counselorVoices = ['admissions dean', 'UCLA reader', 'Ivy Dean', 'UC PIQ specialist', 'liberal arts dean'];
+  const lensIndex = Math.floor(Math.random() * focusLenses.length);
+  const voiceIndex = Math.floor(Math.random() * counselorVoices.length);
+  const focus = focusLenses[lensIndex];
+  const counselor = counselorVoices[voiceIndex];
+  const critiqueId = `critique-${randomUUID()}`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: modelName,
       messages: [
         {
           role: 'system',
-          content: `You are a sharp, encouraging college essay coach. Ground every note in the student's actual draft and avoid generic advice. 
-Use short quotes from the essay (under 12 words) inside parentheses to prove each point.
-Prioritize the biggest reader-impact changes first.
+          content: `You are a seasoned university admissions reader and essay coach (today channel the tone of a ${counselor}). Provide precise, prioritized feedback that sounds like an experienced counselor, grounded in the student's own words—never generic. 
+- Treat this critique as a fresh read (id: ${critiqueId}); do not reuse phrasing from earlier critiques and avoid templated wording.
+- Admissions lens: fit, intellectual curiosity, reflective maturity, and clear storytelling.
+- In this pass, lean extra into ${focus} while still evaluating the full essay.
+- Use short quotes from the essay (<=12 words in parentheses) to prove points and keep them varied.
+- Prioritize the biggest reader-impact changes first and ensure each issue is distinct.
 
-Rubric:
+Rubric to balance:
 - Idea/theme clarity and insight
 - Structure & flow toward a turning point
 - Voice & authenticity
 - Specificity & evidence
 - Language clarity & mechanics
 
-Provide:
-1) Exactly 3 strengths (what is working well and why)
-2) Exactly 3 priority fixes in order of impact (make each distinct)
+Provide in JSON only:
+1) Exactly 3 strengths (why they work for an admissions reader)
+2) Exactly 3 priority fixes in order of impact (make each distinct, non-duplicative)
 3) Up to 3 concrete line edits with original line, suggested improvement, and reason
-4) A brief overall feedback (2–3 sentences) that ties back to the prompt and next steps
+4) A brief overallFeedback (2–3 sentences) tied to the prompt and next steps
 
-If the draft is a note dump or under 80 words, say that and give the next 2 most helpful actions instead of line edits.
-
-Format your response as JSON with this structure:
-{
-  "strengths": ["strength1", "strength2", "strength3"],
-  "issues": ["issue1", "issue2", "issue3"],
-  "lineEdits": [
-    {"line": "original line", "suggestion": "improved line", "reason": "why"}
-  ],
-  "overallFeedback": "brief feedback"
-}`,
+If the draft is a note dump or under 80 words, say that and give the next 2 most helpful actions instead of line edits.`,
         },
         {
           role: 'user',
-          content: `Prompt: ${prompt}\n\nWord Limit: ${wordLimit}\n\nEssay:\n\n${essay}`,
+          content: `Prompt: ${prompt}\nTitle: ${title || 'Untitled essay'}\nWord Limit: ${wordLimit}\nCritique run id: ${critiqueId}\nFocus dimension: ${focus}\n\nEssay:\n\n${essay}`,
         },
       ],
-      temperature: 0.6,
-      presence_penalty: 0.4,
-      frequency_penalty: 0.2,
+      temperature: 0.7,
+      presence_penalty: 0.55,
+      frequency_penalty: 0.3,
       response_format: { type: 'json_object' },
     });
 
@@ -78,10 +111,11 @@ Format your response as JSON with this structure:
       throw new Error('No response from OpenAI');
     }
 
-    return JSON.parse(content) as EssayCritique;
+    const parsed = JSON.parse(content) as EssayCritique;
+    return { ...parsed, source: 'openai', runId: critiqueId, focus, counselor, model: modelName };
   } catch (error) {
     console.error('OpenAI critique request failed, using fallback:', error);
-    return buildFallbackCritique(essay, prompt);
+    return buildFallbackCritique(essay, prompt, title);
   }
 }
 
@@ -97,7 +131,7 @@ export async function rewriteEssay(
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: modelName,
       messages: [
         {
           role: 'system',
@@ -134,7 +168,7 @@ export async function coachEssay(
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: modelName,
       messages: [
         {
           role: 'system',
@@ -184,7 +218,7 @@ export async function chatEssay(
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: modelName,
       messages: [
         {
           role: 'system',
@@ -210,7 +244,8 @@ Do not fabricate events—work only with what's on the page.`,
   }
 }
 
-function buildFallbackCritique(essay: string, prompt: string): EssayCritique {
+function buildFallbackCritique(essay: string, prompt: string, title?: string): EssayCritique {
+  const essayLabel = title || prompt || 'your prompt';
   const sentences = essay
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
@@ -245,7 +280,7 @@ function buildFallbackCritique(essay: string, prompt: string): EssayCritique {
       ? 'Connect each vivid detail back to why it matters for this prompt.'
       : 'Add 2–3 specific images or examples so admissions can picture the moment.',
     hasReflection
-      ? `Strengthen the ending so it answers “so what?”—tie it back to ${prompt ? `"${snippet(prompt)}"` : 'the prompt'}.`
+      ? `Strengthen the ending so it answers “so what?”—tie it back to "${snippet(essayLabel)}".`
       : 'Close with 1–2 sentences on what changed in you because of this experience.',
   ];
 
@@ -267,7 +302,8 @@ function buildFallbackCritique(essay: string, prompt: string): EssayCritique {
     lineEdits,
     overallFeedback: `Lean on your strongest moment (“${snippet(
       opening || sentences[1] || essay
-    )}”) and add one vivid sensory detail to let us feel it. Then close with a crisp sentence about how it changed what you value in relation to "${snippet(prompt)}".`,
+    )}”) and add one vivid sensory detail to let us feel it. Then close with a crisp sentence about how it changed what you value in relation to "${snippet(essayLabel)}".`,
+    source: 'fallback',
   };
 }
 

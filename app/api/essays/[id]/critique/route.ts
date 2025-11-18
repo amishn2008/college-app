@@ -35,7 +35,7 @@ export async function POST(
     }
 
     if (mode === 'critique') {
-      const critique = await critiqueEssay(essay.currentContent, essay.prompt, essay.wordLimit);
+      const critique = await critiqueEssay(essay.currentContent, essay.prompt, essay.wordLimit, essay.title);
       return NextResponse.json(critique);
     } else if (mode === 'rewrite' && instruction) {
       const rewritten = await rewriteEssay(essay.currentContent, instruction, essay.prompt, essay.wordLimit);
