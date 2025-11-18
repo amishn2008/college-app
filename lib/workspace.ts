@@ -6,6 +6,7 @@ import {
   RecommenderEntry,
   HelpfulLink,
   BrainstormCluster,
+  DocumentPrepItem,
 } from '@/types/workspace';
 
 const baseChecklist: ChecklistItem[] = [
@@ -113,6 +114,15 @@ export const buildDefaultWorkspace = (): WorkspaceData => ({
     outline: [],
     nextSteps: '',
   },
+  documentPrep: withIds<DocumentPrepItem>(
+    [
+      { id: '', title: 'Brag sheet or resume PDF', status: 'not_started' },
+      { id: '', title: 'Unofficial transcript saved', status: 'not_started' },
+      { id: '', title: 'Testing score report (SAT/ACT/AP)', status: 'not_started' },
+      { id: '', title: 'Activities + honors list drafted', status: 'not_started' },
+    ],
+    'doc'
+  ),
 });
 
 export const ensureWorkspace = (data?: WorkspaceData | null): WorkspaceData => {
@@ -128,6 +138,10 @@ export const ensureWorkspace = (data?: WorkspaceData | null): WorkspaceData => {
   workspace.scholarships = withIds(workspace.scholarships || [], 'sch');
   workspace.recommenders = withIds(workspace.recommenders || [], 'rec');
   workspace.helpfulLinks = withIds(workspace.helpfulLinks || [], 'link');
+  workspace.documentPrep = withIds(
+    workspace.documentPrep || buildDefaultWorkspace().documentPrep,
+    'doc'
+  );
 
   workspace.testingPlan ??= buildDefaultWorkspace().testingPlan;
   workspace.financialAid ??= buildDefaultWorkspace().financialAid;
@@ -208,7 +222,20 @@ export const mergeWorkspace = (
     base.helpfulLinks = withIds(base.helpfulLinks, 'link');
   }
 
+  if (patch.documentPrep) {
+    base.documentPrep = withIds(patch.documentPrep, 'doc');
+  } else {
+    base.documentPrep = withIds(base.documentPrep || [], 'doc');
+  }
+
   return base;
 };
 
-export type { ChecklistItem, WorkspaceData, ScholarshipEntry, RecommenderEntry, HelpfulLink };
+export type {
+  ChecklistItem,
+  WorkspaceData,
+  ScholarshipEntry,
+  RecommenderEntry,
+  HelpfulLink,
+  DocumentPrepItem,
+};

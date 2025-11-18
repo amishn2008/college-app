@@ -68,6 +68,15 @@ export interface BrainstormWorkspace {
   nextSteps?: string;
 }
 
+export type DocumentStatus = 'not_started' | 'in_progress' | 'done';
+
+export interface DocumentPrepItem {
+  id: string;
+  title: string;
+  status: DocumentStatus;
+  note?: string;
+}
+
 export interface WorkspaceData {
   checklist: ChecklistItem[];
   testingPlan: TestingPlan;
@@ -77,4 +86,5 @@ export interface WorkspaceData {
   helpfulLinks: HelpfulLink[];
   generalNotes: string;
   brainstorm: BrainstormWorkspace;
+  documentPrep: DocumentPrepItem[];
 }

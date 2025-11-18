@@ -14,6 +14,7 @@ import {
   FileText,
   Users,
   DollarSign,
+  Folder,
 } from 'lucide-react';
 import { ActiveStudentSelector } from '@/components/collaboration/ActiveStudentSelector';
 
@@ -27,6 +28,7 @@ export function Navbar() {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/essays', label: 'Essays', icon: FileText },
     { href: '/dashboard/tasks', label: 'Tasks', icon: ListTodo },
+    { href: '/dashboard/documents', label: 'Documents', icon: Folder },
     { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar },
     { href: '/dashboard/collaboration', label: 'Collaboration', icon: Users },
   ];
@@ -35,6 +37,7 @@ export function Navbar() {
     { href: '/dashboard/counselor', label: 'Students', icon: Users },
     { href: '/dashboard/tasks', label: 'Tasks', icon: ListTodo },
     { href: '/dashboard/essays', label: 'Essays', icon: FileText },
+    { href: '/dashboard/documents', label: 'Documents', icon: Folder },
     { href: '/dashboard/collaboration', label: 'Collaboration', icon: Users },
   ];
 
