@@ -1,49 +1,74 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import EmailProvider from 'next-auth/providers/email';
+import CredentialsProvider from 'next-auth/providers/credentials';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
+
+const normalizeEnv = (value?: string | null) => value?.trim() || undefined;
 
 const isValidObjectId = (value?: string | null): value is string =>
   typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
 
-const providers = [];
+const buildBaseUrl = () => {
+  const envUrl = normalizeEnv(process.env.NEXTAUTH_URL);
+  const fallbackLocal = 'http://localhost:3000';
+  const resolved = envUrl || fallbackLocal;
 
-if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-  console.warn('[auth] GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is not set. Google sign-in will fail.');
-} else {
-  providers.push(
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    })
-  );
+  // Keep the runtime copy in sync so NextAuth uses the same origin for callbacks.
+  process.env.NEXTAUTH_URL = resolved;
+  return resolved;
+};
+
+const baseUrl = buildBaseUrl();
+
+const googleClientId = normalizeEnv(process.env.GOOGLE_CLIENT_ID);
+const googleClientSecret = normalizeEnv(process.env.GOOGLE_CLIENT_SECRET);
+const nextAuthSecret = normalizeEnv(process.env.NEXTAUTH_SECRET);
+
+if (!nextAuthSecret) {
+  throw new Error('[auth] NEXTAUTH_SECRET is not set. Generate one and set it in your environment.');
 }
 
-const hasEmailEnv = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD;
+const providers = [] as NextAuthOptions['providers'];
 
-if (hasEmailEnv) {
+if (googleClientId && googleClientSecret) {
   providers.push(
-    EmailProvider({
-      server: {
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT) || 587,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASSWORD,
-        },
-      },
-      from: process.env.EMAIL_FROM || 'noreply@example.com',
+    GoogleProvider({
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
     })
   );
-} else if (process.env.NODE_ENV !== 'production') {
-  // Dev fallback: enable the email provider and log magic links instead of sending email
+} else {
+  console.warn('[auth] GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET missing. Google sign-in disabled (local only).');
+}
+
+// EmailProvider requires a database adapter. Disable until one is configured to avoid runtime errors.
+if (process.env.SMTP_HOST || process.env.SMTP_USER || process.env.SMTP_PASSWORD) {
+  console.warn('[auth] Email provider not enabled: missing NextAuth adapter configuration.');
+}
+
+// Dev-only credentials fallback so NextAuth always has at least one provider.
+if (providers.length === 0 && process.env.NODE_ENV !== 'production') {
   providers.push(
-    EmailProvider({
-      from: process.env.EMAIL_FROM || 'noreply@example.com',
-      server: { host: 'localhost', port: 2525, auth: { user: '', pass: '' } },
-      async sendVerificationRequest({ url }) {
-        console.log('[auth] Email login link (dev fallback):', url);
+    CredentialsProvider({
+      name: 'Demo',
+      credentials: {
+        email: { label: 'Email', type: 'text', value: 'demo@example.com' },
+        password: { label: 'Password', type: 'password', value: 'demo123' },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email?.trim().toLowerCase();
+        const password = credentials?.password;
+
+        if (email === 'demo@example.com' && password === 'demo123') {
+          return {
+            id: 'dev-demo-user',
+            email,
+            name: 'Demo User',
+          };
+        }
+
+        return null;
       },
     })
   );
@@ -54,13 +79,13 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: nextAuthSecret,
   pages: {
     signIn: '/auth/signin',
     verifyRequest: '/auth/verify-request',
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user }) {
       await connectDB();
       if (user.email) {
         const existingUser = await User.findOne({ email: user.email });
