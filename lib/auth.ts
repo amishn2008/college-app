@@ -4,6 +4,14 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 
+const ensureStudentActiveId = async (user: typeof User.prototype | null) => {
+  if (user && user.role === 'student' && !user.activeStudentId) {
+    user.activeStudentId = user._id;
+    await user.save();
+  }
+  return user;
+};
+
 const normalizeEnv = (value?: string | null) => value?.trim() || undefined;
 
 const isValidObjectId = (value?: string | null): value is string =>
@@ -88,9 +96,9 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user }) {
       await connectDB();
       if (user.email) {
-        const existingUser = await User.findOne({ email: user.email });
+        let existingUser = await User.findOne({ email: user.email });
         if (!existingUser) {
-          await User.create({
+          existingUser = await User.create({
             email: user.email,
             name: user.name,
             image: user.image,
@@ -99,6 +107,7 @@ export const authOptions: NextAuthOptions = {
             role: 'student',
           });
         }
+        await ensureStudentActiveId(existingUser);
       }
       return true;
     },
@@ -114,6 +123,7 @@ export const authOptions: NextAuthOptions = {
       } else if (resolvedEmail) {
         dbUser = await User.findOne({ email: resolvedEmail });
       }
+      dbUser = await ensureStudentActiveId(dbUser);
 
       if (dbUser) {
         token.id = dbUser._id.toString();

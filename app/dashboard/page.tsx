@@ -79,8 +79,14 @@ async function getDashboardData(viewerId: string, requestedStudentId?: string | 
       college.progress.readinessScore = readinessScore;
       await college.save();
 
+      const plainCollege = college.toObject();
       return {
-        ...college.toObject(),
+        ...plainCollege,
+        _id: college._id.toString(),
+        userId: college.userId?.toString(),
+        deadline: college.deadline ? college.deadline.toISOString() : null,
+        createdAt: college.createdAt ? college.createdAt.toISOString() : null,
+        updatedAt: college.updatedAt ? college.updatedAt.toISOString() : null,
         daysUntil: getDaysUntilDeadline(college.deadline),
       };
     })

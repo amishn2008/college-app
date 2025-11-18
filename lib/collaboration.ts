@@ -58,6 +58,12 @@ export async function resolveStudentContext({
     throw new AuthorizationError('User not found', 401);
   }
 
+  // Ensure student users always default to themselves.
+  if (viewer.role === 'student' && !viewer.activeStudentId) {
+    viewer.activeStudentId = viewer._id;
+    await viewer.save();
+  }
+
   const isCollaborator = ['counselor', 'parent'].includes(viewer.role as UserRole);
   const buildFallbackFilter = () => {
     const filter: Record<string, unknown> = {

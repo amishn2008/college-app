@@ -20,7 +20,9 @@ export default async function DashboardLayout({
 
   // Check if user needs onboarding
   if (user && (!user.regions || user.regions.length === 0)) {
-    redirect('/onboarding');
+    user.regions = ['US'];
+    user.intakeYear = user.intakeYear || new Date().getFullYear() + 1;
+    await user.save();
   }
 
   return (
@@ -30,4 +32,3 @@ export default async function DashboardLayout({
     </div>
   );
 }
-
