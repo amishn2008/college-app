@@ -16,6 +16,10 @@ import {
   Trash2,
   FileText,
   ArrowRight,
+  Sparkles,
+  LayoutGrid,
+  List as ListIcon,
+  CalendarDays,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
@@ -71,6 +75,10 @@ interface DashboardData {
   activities: Activity[];
 }
 
+type InsightView = 'colleges' | 'timeline' | 'essays';
+type TaskFocus = 'today' | 'overdue' | 'priority';
+type CollegeView = 'grid' | 'timeline';
+
 export function DashboardClient({ initialData }: { initialData: DashboardData }) {
   const { appendStudentQuery } = useCollaborationContext();
   const [colleges, setColleges] = useState(initialData.colleges);
@@ -90,6 +98,9 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
   const [sparkInputs, setSparkInputs] = useState<Record<string, string>>({});
   const [newClusterTitle, setNewClusterTitle] = useState('');
   const [outlineDraft, setOutlineDraft] = useState('');
+  const [insightView, setInsightView] = useState<InsightView>('colleges');
+  const [taskFocus, setTaskFocus] = useState<TaskFocus>('today');
+  const [collegeView, setCollegeView] = useState<CollegeView>('grid');
 
   useEffect(() => {
     setBrainstormDraft(workspace.brainstorm);
@@ -594,6 +605,140 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
       : `${highlightCollege.name} in ${highlightCollege.daysUntil}d`
     : 'Add a college to see your timeline';
 
+  const sortedCollegesByDeadline = useMemo(
+    () => [...colleges].sort((a, b) => a.daysUntil - b.daysUntil),
+    [colleges]
+  );
+
+  const essaySparkCount = useMemo(
+    () => brainstormDraft.clusters.reduce((count, cluster) => count + cluster.sparks.length, 0),
+    [brainstormDraft]
+  );
+
+  const spotlightTasks = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    if (taskFocus === 'today') {
+      return todayTasks;
+    }
+
+    if (taskFocus === 'overdue') {
+      return allTasks
+        .filter((task) => {
+          if (!task.dueDate) return false;
+          const dueDate = new Date(task.dueDate);
+          dueDate.setHours(0, 0, 0, 0);
+          return dueDate < now;
+        })
+        .slice(0, 5);
+    }
+
+    return allTasks.filter((task) => task.priority === 'high').slice(0, 5);
+  }, [taskFocus, todayTasks, allTasks]);
+
+  const spotlightEmptyCopy: Record<TaskFocus, string> = {
+    today: 'No tasks due today. Enjoy the momentum!',
+    overdue: 'No overdue tasks. Keep the streak going.',
+    priority: 'No high-priority tasks at the moment.',
+  };
+
+  const clusterCount = brainstormDraft.clusters.length;
+  const outlineCount = brainstormDraft.outline.length;
+
+  const renderInsightContent = () => {
+    if (insightView === 'timeline') {
+      return (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
+            <p className="text-xs uppercase tracking-wide text-amber-700">Overdue tasks</p>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-3xl font-semibold text-amber-900">{overdueTasks}</span>
+              <Clock className="w-5 h-5 text-amber-600" />
+            </div>
+            <p className="text-sm text-amber-700">Handle these first</p>
+          </div>
+          <div className="rounded-2xl border border-primary-100 bg-primary-50/90 p-4">
+            <p className="text-xs uppercase tracking-wide text-primary-700">Due this week</p>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-3xl font-semibold text-primary-900">
+                {todayTasks.length}
+              </span>
+              <CalendarDays className="w-5 h-5 text-primary-700" />
+            </div>
+            <p className="text-sm text-primary-700">Including overdue carry-overs</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Next milestone</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{nextDeadlineLabel}</p>
+            <p className="text-sm text-slate-500">Stay ahead of the timeline</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (insightView === 'essays') {
+      return (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-rose-600">Idea clusters</p>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-3xl font-semibold text-rose-900">{clusterCount}</span>
+              <Sparkles className="w-5 h-5 text-rose-500" />
+            </div>
+            <p className="text-sm text-rose-600">Group your best stories</p>
+          </div>
+          <div className="rounded-2xl border border-purple-100 bg-purple-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-purple-600">Idea sparks</p>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-3xl font-semibold text-purple-900">{essaySparkCount}</span>
+              <FileText className="w-5 h-5 text-purple-600" />
+            </div>
+            <p className="text-sm text-purple-600">Micro-stories identified</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-emerald-600">Outline beats</p>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-3xl font-semibold text-emerald-900">{outlineCount}</span>
+              <ListChecks className="w-5 h-5 text-emerald-600" />
+            </div>
+            <p className="text-sm text-emerald-600">Draft-ready structure</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-primary-100 bg-primary-50/90 p-4">
+          <p className="text-xs uppercase tracking-wide text-primary-700">Active colleges</p>
+          <p className="mt-1 text-3xl font-semibold text-primary-900">{colleges.length}</p>
+          <p className="text-sm text-primary-700">
+            {highlightCollege ? `Next up: ${highlightCollege.name}` : 'Add a college to get started'}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+          <p className="text-xs uppercase tracking-wide text-emerald-600">Checklist progress</p>
+          <p className="mt-1 text-3xl font-semibold text-emerald-900">{checklistProgress}%</p>
+          <div className="mt-3 h-2 rounded-full bg-emerald-100">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all"
+              style={{ width: `${checklistProgress}%` }}
+            />
+          </div>
+          <p className="text-xs text-emerald-600 mt-1">
+            {checklistCompleted}/{checklistTotal} milestones
+          </p>
+        </div>
+        <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+          <p className="text-xs uppercase tracking-wide text-sky-600">Next deadline</p>
+          <p className="mt-1 text-lg font-semibold text-sky-900">{nextDeadlineLabel}</p>
+          <p className="text-sm text-sky-600">Use it to anchor your week</p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <div className="bg-gradient-to-br from-primary-600 via-primary-500 to-primary-400 text-white rounded-3xl p-6 shadow-lg">
@@ -648,118 +793,279 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
               <p className="text-sm font-semibold">{nextDeadlineLabel}</p>
             </Card>
           </div>
+      </div>
+    </div>
+
+    <Card className="-mt-6 border border-primary-100 bg-white shadow-xl shadow-primary-100/40 relative z-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-500">
+            Focus insight
+          </p>
+          <h2 className="text-2xl font-semibold text-gray-900">Curate what you need right now</h2>
+          <p className="text-sm text-gray-500">
+            Switch views to surface college, timeline, or essay signals.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-gray-500 uppercase">View</span>
+          <select
+            value={insightView}
+            onChange={(e) => setInsightView(e.target.value as InsightView)}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="colleges">College plan</option>
+            <option value="timeline">Timeline health</option>
+            <option value="essays">Essay lab</option>
+          </select>
         </div>
       </div>
+      <div className="mt-6">{renderInsightContent()}</div>
+    </Card>
 
-      {todayTasks.length > 0 && (
-        <Card className="mb-8 bg-primary-50 border-primary-200">
-          <div className="flex items-center gap-3 mb-4">
-            <Clock className="w-5 h-5 text-primary-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Today</h2>
+    <Card className="mb-8 border border-slate-200 bg-gradient-to-br from-white to-slate-50">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-primary-100 p-2">
+            <Clock className="w-5 h-5 text-primary-700" />
           </div>
-          <div className="space-y-2">
-            {todayTasks.map((task) => (
-              <div
-                key={task._id}
-                className="flex items-center justify-between p-3 bg-white rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${
-                    task.priority === 'high' ? 'bg-red-500' : 
-                    task.priority === 'medium' ? 'bg-yellow-500' : 'bg-gray-300'
-                  }`} />
-                  <span className="text-gray-900">{task.title}</span>
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                    {task.label}
-                  </span>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Spotlight tasks</h2>
+            <p className="text-sm text-gray-500">
+              {taskFocus === 'today' && 'Everything due today.'}
+              {taskFocus === 'overdue' && 'Cleanup what slipped behind.'}
+              {taskFocus === 'priority' && 'High priority items to unblock progress.'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-500 uppercase">Filter</span>
+          <select
+            value={taskFocus}
+            onChange={(e) => setTaskFocus(e.target.value as TaskFocus)}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="today">Due today</option>
+            <option value="overdue">Overdue</option>
+            <option value="priority">High priority</option>
+          </select>
+        </div>
+      </div>
+      {spotlightTasks.length > 0 ? (
+        <div className="space-y-2">
+          {spotlightTasks.map((task) => (
+            <div
+              key={task._id}
+              className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex flex-1 items-start gap-3">
+                <span
+                  className={`mt-1 inline-flex h-3 w-3 rounded-full ${
+                    task.priority === 'high'
+                      ? 'bg-red-500'
+                      : task.priority === 'medium'
+                      ? 'bg-amber-500'
+                      : 'bg-gray-300'
+                  }`}
+                />
+                <div>
+                  <p className="font-medium text-gray-900">{task.title}</p>
+                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
+                    <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 uppercase tracking-wide">
+                      {task.label}
+                    </span>
+                    {task.collegeId && (
+                      <span className="inline-flex rounded-full bg-primary-50 px-2 py-0.5 text-primary-700">
+                        Linked college
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {task.dueDate && (
-                  <span className="text-sm text-gray-500">
+              </div>
+              <div className="flex items-center gap-3 text-sm text-gray-500">
+                {task.dueDate ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">
+                    <CalendarDays className="w-4 h-4 text-slate-500" />
                     Due {formatDate(task.dueDate)}
+                  </span>
+                ) : (
+                  <span className="text-xs uppercase tracking-wide text-gray-400">
+                    No due date set
                   </span>
                 )}
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {colleges.length === 0 ? (
-        <Card className="text-center py-12">
-          <p className="text-gray-600 mb-4">Add your first college to get started</p>
-          <Button onClick={() => setShowAddCollege(true)}>
-            <Plus className="w-5 h-5 mr-2" />
-            Add Your First College
-          </Button>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {colleges.map((college) => (
-            <Card key={college._id} className="hover:shadow-lg transition-shadow">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{college.name}</h3>
-                  <p className="text-sm text-gray-500">{college.plan}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCollegeToDelete(college)}
-                    className="text-gray-400 hover:text-red-600 transition"
-                    aria-label={`Delete ${college.name}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${getUrgencyColor(
-                      college.daysUntil
-                    )}`}
-                  >
-                    {college.daysUntil < 0 ? 'Overdue' : `${college.daysUntil} days`}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">Readiness</span>
-                  <span className="font-medium">{college.progress.readinessScore}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all ${getReadinessColor(
-                      college.progress.readinessScore
-                    )}`}
-                    style={{ width: `${college.progress.readinessScore}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="text-sm text-gray-600 mb-4">
-                <p>Deadline: {formatDate(college.deadline)}</p>
-                <p>
-                  Tasks: {college.progress.tasksCompleted}/{college.progress.tasksTotal}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <Link href={`/dashboard/colleges/${college._id}`} className="flex-1">
-                  <Button variant="outline" size="sm" className="w-full">
-                    View Details
-                  </Button>
-                </Link>
-                <Link href={`/dashboard/colleges/${college._id}/essays`} className="flex-1">
-                  <Button size="sm" className="w-full">
-                    Essays
-                  </Button>
-                </Link>
-              </div>
-            </Card>
+            </div>
           ))}
         </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white/50 p-6 text-center text-sm text-gray-500">
+          {spotlightEmptyCopy[taskFocus]}
+        </div>
       )}
+    </Card>
 
-      <section className="mt-12 space-y-8">
+    {colleges.length === 0 ? (
+      <Card className="text-center py-12">
+        <p className="text-gray-600 mb-4">Add your first college to get started</p>
+        <Button onClick={() => setShowAddCollege(true)}>
+          <Plus className="w-5 h-5 mr-2" />
+          Add Your First College
+        </Button>
+      </Card>
+    ) : (
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-900">College progress</h2>
+            <p className="text-sm text-gray-500">Toggle a dense board or linear timeline view.</p>
+          </div>
+          <div className="inline-flex items-center rounded-full border border-gray-200 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setCollegeView('grid')}
+              className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-sm transition ${
+                collegeView === 'grid'
+                  ? 'bg-primary-600 text-white shadow'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Board
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollegeView('timeline')}
+              className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-sm transition ${
+                collegeView === 'timeline'
+                  ? 'bg-primary-600 text-white shadow'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <ListIcon className="w-4 h-4" />
+              Timeline
+            </button>
+          </div>
+        </div>
+
+        {collegeView === 'grid' ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {colleges.map((college) => (
+              <Card
+                key={college._id}
+                className="relative overflow-hidden border border-gray-100 bg-white/90 transition-shadow hover:shadow-xl"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{college.name}</h3>
+                    <p className="text-sm text-gray-500">{college.plan}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCollegeToDelete(college)}
+                      className="text-gray-400 hover:text-red-600 transition"
+                      aria-label={`Delete ${college.name}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${getUrgencyColor(
+                        college.daysUntil
+                      )}`}
+                    >
+                      {college.daysUntil < 0 ? 'Overdue' : `${college.daysUntil} days`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Readiness</span>
+                    <span className="font-medium">{college.progress.readinessScore}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all ${getReadinessColor(
+                        college.progress.readinessScore
+                      )}`}
+                      style={{ width: `${college.progress.readinessScore}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="text-sm text-gray-600 mb-4">
+                  <p>Deadline: {formatDate(college.deadline)}</p>
+                  <p>
+                    Tasks: {college.progress.tasksCompleted}/{college.progress.tasksTotal}
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Link href={`/dashboard/colleges/${college._id}`} className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full">
+                      View Details
+                    </Button>
+                  </Link>
+                  <Link href={`/dashboard/colleges/${college._id}/essays`} className="flex-1">
+                    <Button size="sm" className="w-full">
+                      Essays
+                    </Button>
+                  </Link>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-6 border-l-2 border-primary-100 pl-6">
+            {sortedCollegesByDeadline.map((college) => {
+              const readiness = Math.max(
+                0,
+                Math.min(100, college.progress.readinessScore || 0)
+              );
+              return (
+                <div key={college._id} className="relative pl-4">
+                  <span className="absolute -left-8 top-5 flex h-4 w-4 items-center justify-center rounded-full border-4 border-white bg-primary-500 shadow" />
+                  <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold text-gray-900">{college.name}</p>
+                        <p className="text-sm text-gray-500">{college.plan}</p>
+                      </div>
+                      <span
+                        className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-full ${
+                          college.daysUntil < 0
+                            ? 'bg-red-50 text-red-600'
+                            : 'bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        {college.daysUntil < 0
+                          ? `${Math.abs(college.daysUntil)}d overdue`
+                          : `${college.daysUntil}d out`}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                      <CalendarDays className="w-4 h-4 text-primary-500" />
+                      {college.deadline ? formatDate(college.deadline) : 'No deadline'}
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-xs uppercase text-gray-400">Readiness</p>
+                      <div className="mt-1 h-2 rounded-full bg-gray-200">
+                        <div
+                          className="h-full rounded-full bg-primary-500 transition-all"
+                          style={{ width: `${readiness}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    )}
+
+    <section className="mt-12 space-y-8">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Application workspace</h2>
           <p className="text-gray-600 mt-1">
