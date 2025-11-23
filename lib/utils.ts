@@ -45,6 +45,33 @@ export function getDaysUntilDeadline(deadline: Date): number {
   return diffDays;
 }
 
+const NUMERIC_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month: '2-digit',
+  day: '2-digit',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'UTC',
+});
+
+export function formatNumericDate(date: Date | string | number | null | undefined): string {
+  if (!date) return '—';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return NUMERIC_DATE_FORMATTER.format(parsed);
+}
+
+export function formatDateTime(date: Date | string | number | null | undefined): string {
+  if (!date) return '—';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return DATE_TIME_FORMATTER.format(parsed);
+}
+
 export function formatDate(date: Date | string | number): string {
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
