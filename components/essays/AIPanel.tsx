@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { MessageSquare, Sparkles, Lightbulb, Loader2, Bot, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCollaborationContext } from '@/components/providers/CollaborationProvider';
+import { formatDateTime } from '@/lib/utils';
 
 interface Essay {
   _id: string;
@@ -460,9 +461,7 @@ export function AIPanel({ essay, mode, onModeChange, onRewriteApplied }: AIPanel
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                   <span>{approval.approvedBy?.name || 'Unknown reviewer'}</span>
                   <span>
-                    {approval.approvedAt
-                      ? new Date(approval.approvedAt).toLocaleString()
-                      : ''}
+                    {approval.approvedAt ? formatDateTime(approval.approvedAt) : ''}
                   </span>
                 </div>
                 {approval.instruction && (

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCollaborationContext } from '@/components/providers/CollaborationProvider';
+import { formatNumericDate } from '@/lib/utils';
 
 const createLocalId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -383,7 +384,7 @@ export function EssayDashboardClient({
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
     if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString();
+    return formatNumericDate(date);
   };
 
   const getEssayTag = (essay: EssayWithCollege) => {
@@ -689,7 +690,7 @@ export function EssayDashboardClient({
                 >
                   <div className="font-medium">{version.name}</div>
                   <div className="text-xs text-gray-500">
-                    {version.wordCount} words • {new Date(version.createdAt).toLocaleDateString()}
+                    {version.wordCount} words • {formatNumericDate(version.createdAt)}
                   </div>
                 </button>
               ))}

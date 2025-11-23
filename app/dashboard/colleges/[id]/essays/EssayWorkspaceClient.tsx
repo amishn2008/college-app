@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { EssayEditor } from '@/components/essays/EssayEditor';
 import { AIPanel } from '@/components/essays/AIPanel';
 import { useCollaborationContext } from '@/components/providers/CollaborationProvider';
+import { formatNumericDate } from '@/lib/utils';
 
 interface Essay {
   _id: string;
@@ -200,7 +201,7 @@ export function EssayWorkspaceClient({ college, essays: initialEssays }: EssayWo
                   >
                     <div className="font-medium">{version.name}</div>
                     <div className="text-xs text-gray-500">
-                      {version.wordCount} words • {new Date(version.createdAt).toLocaleDateString()}
+                      {version.wordCount} words • {formatNumericDate(version.createdAt)}
                     </div>
                   </button>
                 ))}
