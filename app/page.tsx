@@ -32,6 +32,9 @@ export default async function HomePage() {
                     Start my dashboard
                   </Button>
                 </Link>
+                <Link href="/counselors">
+                  <Button size="lg">Meet counselors</Button>
+                </Link>
                 <Link href="/pricing">
                   <Button
                     size="lg"
