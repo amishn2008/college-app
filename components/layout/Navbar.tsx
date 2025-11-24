@@ -17,6 +17,7 @@ import {
   DollarSign,
   Folder,
   ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 import { ActiveStudentSelector } from '@/components/collaboration/ActiveStudentSelector';
 
@@ -71,6 +72,7 @@ export function Navbar() {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/essays', label: 'Essays', icon: FileText },
     { href: '/dashboard/tasks', label: 'Tasks', icon: ListTodo },
+    { href: '/dashboard/counselors', label: 'Counselors', icon: Sparkles },
     { href: '/dashboard/documents', label: 'Documents', icon: Folder },
     { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar },
     { href: '/dashboard/collaboration', label: 'Collaboration', icon: Users },
@@ -78,6 +80,7 @@ export function Navbar() {
 
   const counselorLinks = [
     { href: '/dashboard/counselor', label: 'Students', icon: Users },
+    { href: '/dashboard/counselor/connect', label: 'Connect', icon: Sparkles },
     { href: '/dashboard/tasks', label: 'Tasks', icon: ListTodo },
     { href: '/dashboard/essays', label: 'Essays', icon: FileText },
     { href: '/dashboard/documents', label: 'Documents', icon: Folder },

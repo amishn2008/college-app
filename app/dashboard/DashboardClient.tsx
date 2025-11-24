@@ -20,6 +20,8 @@ import {
   LayoutGrid,
   List as ListIcon,
   CalendarDays,
+  MessageCircle,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
@@ -78,6 +80,62 @@ interface DashboardData {
 type InsightView = 'colleges' | 'timeline' | 'essays';
 type TaskFocus = 'today' | 'overdue' | 'priority';
 type CollegeView = 'grid' | 'timeline';
+
+interface CounselorProfile {
+  name: string;
+  headline: string;
+  rate: string;
+  focus: string;
+  response: string;
+  students: number;
+  rating: number;
+  languages: string[];
+  availability: string;
+  formats: string[];
+  tags: string[];
+}
+
+const counselorProfiles: CounselorProfile[] = [
+  {
+    name: 'Lauren Chen',
+    headline: 'Former Stanford admissions reader',
+    rate: '$145/hr',
+    focus: 'STEM + Ivy/UC',
+    response: 'Replies in under 2 hours',
+    students: 126,
+    rating: 4.9,
+    languages: ['English', 'Mandarin'],
+    availability: '3 live slots this week',
+    formats: ['Video', 'Async edits'],
+    tags: ['Essay coaching', 'Strategy', 'Scholarships'],
+  },
+  {
+    name: 'Marcus Rivera',
+    headline: 'Lead counselor, charter network',
+    rate: '$95/hr',
+    focus: 'First-gen + merit aid',
+    response: 'Replies same day',
+    students: 214,
+    rating: 4.8,
+    languages: ['English', 'Spanish'],
+    availability: '5 live slots this week',
+    formats: ['Video', 'Office hours'],
+    tags: ['Activity list', 'Interview prep', 'Financial aid'],
+  },
+  {
+    name: 'Priya Desai',
+    headline: 'Oxbridge alum + essay specialist',
+    rate: '$110/hr',
+    focus: 'UK + US hybrid',
+    response: 'Replies within a day',
+    students: 97,
+    rating: 5.0,
+    languages: ['English', 'Hindi'],
+    availability: '2 live slots this week',
+    formats: ['Video', 'Async edits'],
+    tags: ['Personal statements', 'Supplemental strategy', 'Recommendations'],
+  },
+];
 
 export function DashboardClient({ initialData }: { initialData: DashboardData }) {
   const { appendStudentQuery } = useCollaborationContext();
@@ -821,6 +879,88 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
         </div>
       </div>
       <div className="mt-6">{renderInsightContent()}</div>
+    </Card>
+
+    <Card className="border border-primary-100 bg-white shadow-xl shadow-primary-100/40">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-500">
+            Counselor network
+          </p>
+          <h2 className="text-2xl font-semibold text-gray-900">Meet counselors from your dashboard</h2>
+          <p className="text-sm text-gray-500">
+            Compare expertise, rates, and availability without leaving your workspace.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard/collaboration">
+            <Button variant="outline" className="border-primary-200 text-primary-800 hover:bg-primary-50">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Invite your counselor
+            </Button>
+          </Link>
+        </div>
+      </div>
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {counselorProfiles.map((profile) => (
+          <div
+            key={profile.name}
+            className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 space-y-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-lg font-semibold text-gray-900">{profile.name}</p>
+                <p className="text-sm text-gray-600">{profile.headline}</p>
+                <p className="text-sm text-primary-700 mt-1">{profile.focus}</p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1">
+                    <Star className="w-4 h-4 text-primary-600 fill-primary-500" />
+                    {profile.rating} ({profile.students} students)
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-1 text-primary-800">
+                    <MessageCircle className="w-4 h-4" />
+                    {profile.response}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500">Rate</p>
+                <p className="text-xl font-semibold text-gray-900">{profile.rate}</p>
+                <p className="text-xs text-gray-500">{profile.availability}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {profile.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="px-3 py-1 rounded-full bg-primary-50 text-primary-800 text-xs font-semibold border border-primary-100"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1">
+                <Clock className="w-4 h-4 text-gray-500" />
+                {profile.formats.join(' · ')}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1">
+                <Sparkles className="w-4 h-4 text-primary-500" />
+                {profile.languages.join(' · ')}
+              </span>
+            </div>
+            <div className="flex gap-3">
+              <Button className="flex-1">Book intro</Button>
+              <Button
+                variant="outline"
+                className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
+              >
+                Message
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
     </Card>
 
     <Card className="mb-8 border border-slate-200 bg-gradient-to-br from-white to-slate-50">
