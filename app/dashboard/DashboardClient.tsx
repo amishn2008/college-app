@@ -42,6 +42,10 @@ interface College {
     tasksTotal: number;
   };
   daysUntil: number;
+  status?: {
+    phase: 'researching' | 'drafting' | 'ready' | 'submitted' | 'decision';
+    decision: 'pending' | 'accepted' | 'waitlisted' | 'rejected' | 'deferred';
+  };
 }
 
 interface Task {
@@ -159,6 +163,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
   const [insightView, setInsightView] = useState<InsightView>('colleges');
   const [taskFocus, setTaskFocus] = useState<TaskFocus>('today');
   const [collegeView, setCollegeView] = useState<CollegeView>('grid');
+  const [phaseFilter, setPhaseFilter] = useState<'all' | 'researching' | 'drafting' | 'ready' | 'submitted' | 'decision'>('all');
 
   useEffect(() => {
     setBrainstormDraft(workspace.brainstorm);
@@ -380,6 +385,34 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
     if (score >= 80) return 'bg-green-500';
     if (score >= 50) return 'bg-yellow-500';
     return 'bg-red-500';
+  };
+
+  const getDecisionBadge = (status?: College['status']) => {
+    if (!status) return null;
+    const { decision, phase } = status;
+    if (phase === 'decision') {
+      const colors: Record<string, string> = {
+        accepted: 'bg-green-100 text-green-700',
+        waitlisted: 'bg-yellow-100 text-yellow-700',
+        rejected: 'bg-red-100 text-red-600',
+        deferred: 'bg-orange-100 text-orange-700',
+        pending: 'bg-gray-100 text-gray-600',
+      };
+      return { label: decision.charAt(0).toUpperCase() + decision.slice(1), color: colors[decision] || 'bg-gray-100 text-gray-600' };
+    }
+    const phaseColors: Record<string, string> = {
+      researching: 'bg-slate-100 text-slate-600',
+      drafting: 'bg-blue-50 text-blue-600',
+      ready: 'bg-indigo-50 text-indigo-600',
+      submitted: 'bg-purple-50 text-purple-600',
+    };
+    const phaseLabels: Record<string, string> = {
+      researching: 'Researching',
+      drafting: 'Drafting',
+      ready: 'Ready',
+      submitted: 'Submitted',
+    };
+    return { label: phaseLabels[phase] || phase, color: phaseColors[phase] || 'bg-gray-100 text-gray-600' };
   };
 
   const ACTIVITY_CATEGORIES = [
@@ -668,6 +701,15 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
     [colleges]
   );
 
+  const acceptedCount = colleges.filter((c) => c.status?.decision === 'accepted').length;
+  const waitlistedCount = colleges.filter((c) => c.status?.decision === 'waitlisted').length;
+  const rejectedCount = colleges.filter((c) => c.status?.decision === 'rejected').length;
+
+  const filteredColleges = useMemo(
+    () => phaseFilter === 'all' ? colleges : colleges.filter((c) => c.status?.phase === phaseFilter),
+    [colleges, phaseFilter]
+  );
+
   const essaySparkCount = useMemo(
     () => brainstormDraft.clusters.reduce((count, cluster) => count + cluster.sparks.length, 0),
     [brainstormDraft]
@@ -769,11 +811,16 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
     return (
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-primary-100 bg-primary-50/90 p-4">
-          <p className="text-xs uppercase tracking-wide text-primary-700">Active colleges</p>
+          <p className="text-xs uppercase tracking-wide text-primary-700">Application tracker</p>
           <p className="mt-1 text-3xl font-semibold text-primary-900">{colleges.length}</p>
-          <p className="text-sm text-primary-700">
-            {highlightCollege ? `Next up: ${highlightCollege.name}` : 'Add a college to get started'}
-          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+            {acceptedCount > 0 && <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">{acceptedCount} accepted</span>}
+            {waitlistedCount > 0 && <span className="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">{waitlistedCount} waitlisted</span>}
+            {rejectedCount > 0 && <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">{rejectedCount} rejected</span>}
+            {acceptedCount + waitlistedCount + rejectedCount === 0 && (
+              <span className="text-primary-700">{highlightCollege ? `Next up: ${highlightCollege.name}` : 'Add a college to get started'}</span>
+            )}
+          </div>
         </div>
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
           <p className="text-xs uppercase tracking-wide text-emerald-600">Checklist progress</p>
@@ -1087,9 +1134,26 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-2">
+          {(['all', 'researching', 'drafting', 'ready', 'submitted', 'decision'] as const).map((phase) => (
+            <button
+              key={phase}
+              type="button"
+              onClick={() => setPhaseFilter(phase)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
+                phaseFilter === phase
+                  ? 'bg-primary-600 text-white border-primary-600'
+                  : 'border-gray-200 text-gray-600 hover:border-gray-300 bg-white'
+              }`}
+            >
+              {phase === 'all' ? `All (${colleges.length})` : phase.charAt(0).toUpperCase() + phase.slice(1)}
+            </button>
+          ))}
+        </div>
+
         {collegeView === 'grid' ? (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {colleges.map((college) => (
+            {filteredColleges.map((college) => (
               <Card
                 key={college._id}
                 className="relative overflow-hidden border border-gray-100 bg-white/90 transition-shadow hover:shadow-xl"
@@ -1097,7 +1161,17 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{college.name}</h3>
-                    <p className="text-sm text-gray-500">{college.plan}</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <p className="text-sm text-gray-500">{college.plan}</p>
+                      {(() => {
+                        const badge = getDecisionBadge(college.status);
+                        return badge ? (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badge.color}`}>
+                            {badge.label}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1157,7 +1231,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
           </div>
         ) : (
           <div className="space-y-6 border-l-2 border-primary-100 pl-6">
-            {sortedCollegesByDeadline.map((college) => {
+            {[...filteredColleges].sort((a, b) => a.daysUntil - b.daysUntil).map((college) => {
               const readiness = Math.max(
                 0,
                 Math.min(100, college.progress.readinessScore || 0)
@@ -1169,7 +1243,17 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-lg font-semibold text-gray-900">{college.name}</p>
-                        <p className="text-sm text-gray-500">{college.plan}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm text-gray-500">{college.plan}</p>
+                          {(() => {
+                            const badge = getDecisionBadge(college.status);
+                            return badge ? (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badge.color}`}>
+                                {badge.label}
+                              </span>
+                            ) : null;
+                          })()}
+                        </div>
                       </div>
                       <span
                         className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-full ${

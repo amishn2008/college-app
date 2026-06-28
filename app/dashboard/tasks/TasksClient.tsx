@@ -13,6 +13,7 @@ import {
   Calendar as CalendarIcon,
   ChevronRight,
   Trash2,
+  CheckCircle2,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -58,6 +59,8 @@ export function TasksClient({ initialData }: { initialData: TasksData }) {
   const [showAddTask, setShowAddTask] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [isBulkCompleting, setIsBulkCompleting] = useState(false);
 
   const filteredTasks = useMemo(
     () =>
@@ -113,6 +116,44 @@ export function TasksClient({ initialData }: { initialData: TasksData }) {
 
   const handleAcknowledge = (taskId: string) => {
     patchTask(taskId, { acknowledged: true }, 'Reminder acknowledged');
+  };
+
+  const toggleSelectTask = (taskId: string) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkComplete = async () => {
+    if (selectedTaskIds.size === 0) return;
+    setIsBulkCompleting(true);
+    const ids = Array.from(selectedTaskIds);
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(appendStudentQuery(`/api/tasks/${id}`), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ completed: true }),
+          })
+        )
+      );
+      setTasks((prev) =>
+        prev.map((task) => (selectedTaskIds.has(task._id) ? { ...task, completed: true } : task))
+      );
+      setSelectedTaskIds(new Set());
+      toast.success(`${ids.length} task${ids.length > 1 ? 's' : ''} completed`);
+    } catch {
+      toast.error('Failed to complete some tasks');
+    } finally {
+      setIsBulkCompleting(false);
+    }
   };
 
   const handleTaskAdded = (newTask: Task) => {
@@ -238,6 +279,17 @@ export function TasksClient({ initialData }: { initialData: TasksData }) {
 
       <Card className="bg-white/70 border border-gray-100 backdrop-blur px-4 py-3">
         <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+          {selectedTaskIds.size > 0 && (
+            <Button
+              size="sm"
+              onClick={handleBulkComplete}
+              disabled={isBulkCompleting}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-1" />
+              {isBulkCompleting ? 'Completing...' : `Complete ${selectedTaskIds.size} selected`}
+            </Button>
+          )}
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500" />
             <div className="flex rounded-full bg-gray-100 p-1">
@@ -317,10 +369,19 @@ export function TasksClient({ initialData }: { initialData: TasksData }) {
                       return da - db;
                     })
                     .map((task) => (
-                      <Card key={task._id} className={`p-4 ${task.completed ? 'opacity-60' : ''}`}>
+                      <Card key={task._id} className={`p-4 ${task.completed ? 'opacity-60' : ''} ${selectedTaskIds.has(task._id) ? 'ring-2 ring-primary-400' : ''}`}>
                         <div className="flex flex-col gap-3 md:flex-row md:justify-between">
                           <div className="space-y-2">
                             <div className="flex items-start gap-3">
+                              {!task.completed && (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTaskIds.has(task._id)}
+                                  onChange={() => toggleSelectTask(task._id)}
+                                  className="mt-1.5 w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                  aria-label={`Select ${task.title}`}
+                                />
+                              )}
                               <button
                                 type="button"
                                 onClick={() => handleToggleComplete(task._id, task.completed)}

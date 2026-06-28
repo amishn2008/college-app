@@ -821,9 +821,23 @@ export function EssayDashboardClient({
                             }`}
                           >
                             <div className="font-medium text-gray-900">{essay.title}</div>
-                            <p className="text-xs text-gray-500">
-                              {essay.currentWordCount}/{essay.wordLimit} words
-                            </p>
+                            <div>
+                              <p className="text-xs text-gray-500">
+                                {essay.currentWordCount}/{essay.wordLimit} words
+                              </p>
+                              <div className="mt-1 h-1 rounded-full bg-gray-200">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    (essay.wordLimitProgress ?? 0) >= 100
+                                      ? 'bg-green-500'
+                                      : (essay.wordLimitProgress ?? 0) >= 80
+                                      ? 'bg-amber-400'
+                                      : 'bg-primary-400'
+                                  }`}
+                                  style={{ width: `${Math.min(100, essay.wordLimitProgress ?? 0)}%` }}
+                                />
+                              </div>
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -940,6 +954,18 @@ export function EssayDashboardClient({
                         {essay.currentWordCount}/{essay.wordLimit} words
                       </span>
                       <span>{formatRelativeTime(essay.updatedAt)}</span>
+                    </div>
+                    <div className="mt-1.5 h-1 rounded-full bg-gray-200">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          (essay.wordLimitProgress ?? 0) >= 100
+                            ? 'bg-green-500'
+                            : (essay.wordLimitProgress ?? 0) >= 80
+                            ? 'bg-amber-400'
+                            : 'bg-primary-400'
+                        }`}
+                        style={{ width: `${Math.min(100, essay.wordLimitProgress ?? 0)}%` }}
+                      />
                     </div>
                   </button>
                 );
